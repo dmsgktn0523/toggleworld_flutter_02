@@ -1,44 +1,115 @@
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as path_utils;
 import 'new_word_page.dart';
 
 class VocabularyListScreen extends StatefulWidget {
+  final String listTitle;
+  final int listId;
+  final VoidCallback onBackPressed;  // Add this line
+
+  const VocabularyListScreen({
+    Key? key,
+    required this.listTitle,
+    required this.listId,
+    required this.onBackPressed,  // Add this line
+  }) : super(key: key);
+
   @override
   _VocabularyListScreenState createState() => _VocabularyListScreenState();
 }
 
 class _VocabularyListScreenState extends State<VocabularyListScreen> {
-  bool _switchValue = true;
+  Database? _database;
+  List<Map<String, String>> vocabularyList = [];
 
-  List<Map<String, String>> vocabularyList = [
-    {'word': 'Useful', 'meaning': '도움이 되다'},
-    {'word': 'Sometimes', 'meaning': '때때로'},
-    {'word': 'Synthesize', 'meaning': '(화학 물질을) 합성하다'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _initializeDatabase();
+  }
 
-  void _addNewWord(String word, String meaning) {
-    setState(() {
-      vocabularyList.add({'word': word, 'meaning': meaning});
-    });
+  @override
+  void didUpdateWidget(VocabularyListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.listId != oldWidget.listId) {
+      _loadWords();
+    }
+  }
+
+  Future<void> _initializeDatabase() async {
+    try {
+      _database = await initializeDB();
+      await _loadWords();
+    } catch (e) {
+      print('데이터베이스 초기화 오류: $e');
+    }
+  }
+
+  Future<Database> initializeDB() async {
+    String databasesPath = await getDatabasesPath();
+    String path = path_utils.join(databasesPath, 'word_database.db');
+    return openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute(
+          'CREATE TABLE words (id INTEGER PRIMARY KEY AUTOINCREMENT, word TEXT, meaning TEXT, list_id INTEGER, favorite INTEGER)',
+        );
+      },
+    );
+  }
+
+  Future<void> _loadWords() async {
+    if (_database != null && _database!.isOpen) {
+      final List<Map<String, dynamic>> queryResults = await _database!.query(
+        'words',
+        where: 'list_id = ?',
+        whereArgs: [widget.listId],
+      );
+      setState(() {
+        vocabularyList = queryResults.map((word) => {
+          'word': word['word'] as String,
+          'meaning': word['meaning'] as String,
+        }).toList();
+      });
+    }
+  }
+
+  void _addNewWord(String word, String meaning) async {
+    if (_database != null && _database!.isOpen) {
+      await _database!.insert('words', {
+        'word': word,
+        'meaning': meaning,
+        'list_id': widget.listId, // 현재 리스트의 ID로 저장
+        'favorite': 0,
+      });
+      await _loadWords(); // 새 단어를 추가한 후 업데이트된 단어 리스트를 로드
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: widget.onBackPressed,
+        ),
         title: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 15.0), // Adjust top and bottom padding
+          padding: const EdgeInsets.symmetric(vertical: 15.0),
           child: Text(
-            'Day01',
+            widget.listTitle,
             style: TextStyle(
-              color: Colors.white, // White color for the title
-              fontFamily: 'Raleway', // Example of a custom font family
-              fontWeight: FontWeight.bold, // Bold font weight
-              fontSize: 20.0, // Smaller font size
-              letterSpacing: 1.2, // Letter spacing
+              color: Colors.white,
+              fontFamily: 'Raleway',
+              fontWeight: FontWeight.bold,
+              fontSize: 20.0,
+              letterSpacing: 1.2,
             ),
           ),
         ),
-        backgroundColor: Color(0xFF6030DF), // Updated purple color
+        backgroundColor: Color(0xFF6030DF),
         elevation: 0,
         centerTitle: true,
         actions: [
@@ -87,12 +158,8 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                   ),
                 ),
                 Switch(
-                  value: _switchValue,
-                  onChanged: (value) {
-                    setState(() {
-                      _switchValue = value;
-                    });
-                  },
+                  value: true, // Example value, change according to your logic
+                  onChanged: (value) {},
                   activeColor: Color(0xFF6030DF), // Updated purple color
                 ),
               ],
@@ -113,13 +180,9 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                     contentPadding: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                     leading: CircleAvatar(
                       radius: 12, // Smaller size for the CircleAvatar
-                      backgroundColor: vocabularyList[index]['word']!.isEmpty
-                          ? Colors.transparent
-                          : Color(0xFF6030DF), // Updated purple color
+                      backgroundColor: Color(0xFF6030DF), // Updated purple color
                       child: Text(
-                        vocabularyList[index]['word']!.isEmpty
-                            ? ''
-                            : '${index + 1}',
+                        '${index + 1}',
                         style: TextStyle(color: Colors.white, fontSize: 10), // Smaller font size
                       ),
                     ),
@@ -130,9 +193,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                           vocabularyList[index]['word'] ?? '',
                           style: TextStyle(
                             fontSize: 14.0, // Smaller font size for the word
-                            fontWeight: vocabularyList[index]['word']!.isEmpty
-                                ? FontWeight.normal
-                                : FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
@@ -149,17 +210,13 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                       children: [
                         Icon(
                           Icons.search,
-                          color: vocabularyList[index]['word']!.isEmpty
-                              ? Colors.transparent
-                              : Colors.grey,
+                          color: Colors.grey,
                           size: 20,
                         ), // Adjusted size
                         SizedBox(width: 10),
                         Icon(
                           Icons.star_border,
-                          color: vocabularyList[index]['word']!.isEmpty
-                              ? Colors.transparent
-                              : Color(0xFF6030DF), // Purple color for the favorite icon
+                          color: Color(0xFF6030DF), // Purple color for the favorite icon
                           size: 20,
                         ), // Adjusted size
                       ],
@@ -176,22 +233,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => NewWordPage(onAddWord: _addNewWord),
-            ),
-          );
-
-          if (result != null && result is Map<String, String>) {
-            _addNewWord(result['word']!, result['meaning']!);
-          }
-        },
-        child: Icon(Icons.add),
-        backgroundColor: Color(0xFF6030DF), // Updated purple color
       ),
     );
   }

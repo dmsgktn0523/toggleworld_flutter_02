@@ -3,10 +3,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as path_utils;
-import 'word_list_page.dart'; // WordListPage를 임포트합니다.
 
 class WordListLibrary extends StatefulWidget {
-  const WordListLibrary({super.key});
+  final Function(String, int) onFolderTap;
+
+  const WordListLibrary({super.key, required this.onFolderTap});
 
   @override
   _WordListLibraryState createState() => _WordListLibraryState();
@@ -74,9 +75,9 @@ class _WordListLibraryState extends State<WordListLibrary> {
       // Initialize with default word lists
       setState(() {
         wordLists = [
-          {'id': '1', 'title': '데일리', 'description': 'Commonly used words for daily conversation.'},
-          {'id': '2', 'title': 'Business Vocabulary', 'description': 'Words commonly used in business settings.'},
-          {'id': '3', 'title': 'Technical Terms', 'description': 'Vocabulary for technical and scientific terms.'},
+          {'id': '1', 'title': 'day01', 'description': 'Commonly used words for daily conversation.'},
+          {'id': '2', 'title': '업무', 'description': 'Words commonly used in business settings.'},
+          {'id': '3', 'title': '유행어', 'description': 'Vocabulary for technical and scientific terms.'},
         ];
       });
       _saveWordLists(); // Save the default word lists with `id`
@@ -89,65 +90,72 @@ class _WordListLibraryState extends State<WordListLibrary> {
     await prefs.setString('wordLists', jsonString);
   }
 
-  void _showEditDeleteDialog(int index) {
+  void _showAddWordListDialog() {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('단어장 수정하기'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('수정하기'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(index);
-                },
-              ),
-              ListTile(
-                title: const Text('복사하기'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDuplicateDialog(index);
-                },
-              ),
-              ListTile(
-                title: const Text('삭제하기'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteDialog(index);
-                },
-              ),
-            ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        );
-      },
-    );
-  }
-
-  void _showEditDialog(int index) {
-    final titleController = TextEditingController(text: wordLists[index]['title']);
-    final descriptionController = TextEditingController(text: wordLists[index]['description']);
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('편집'),
+          title: const Text(
+            '새 단어장 추가',
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontWeight: FontWeight.bold,
+              fontSize: 20.0,
+              color: Color(0xFF6030DF), // Updated purple color
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: '단어장 제목',
+                  hintStyle: TextStyle(
+                    fontFamily: 'Raleway',
+                    color: Colors.grey,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: Color(0xFF6030DF), // Updated purple color
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: Color(0xFF6030DF), // Updated purple color
+                    ),
+                  ),
                 ),
               ),
+              SizedBox(height: 10),
               TextField(
                 controller: descriptionController,
-                decoration: const InputDecoration(
-                  hintText: '단어장 설명 (선택 사항)',
+                decoration: InputDecoration(
+                  hintText: '단어장 설명',
+                  hintStyle: TextStyle(
+                    fontFamily: 'Raleway',
+                    color: Colors.grey,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: Color(0xFF6030DF), // Updated purple color
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(
+                      color: Color(0xFF6030DF), // Updated purple color
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -157,28 +165,54 @@ class _WordListLibraryState extends State<WordListLibrary> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text('취소'),
+              child: const Text(
+                '취소',
+                style: TextStyle(
+                  fontFamily: 'Raleway',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.0,
+                  color: Colors.grey,
+                ),
+              ),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () {
                 final title = titleController.text;
                 final description = descriptionController.text.isNotEmpty ? descriptionController.text : ' ';
 
-                bool isDuplicate = wordLists.any((element) => element['title'] == title && element['id'] != wordLists[index]['id']);
+                bool isDuplicate = wordLists.any((element) => element['title'] == title);
 
                 if (title.isNotEmpty && !isDuplicate) {
                   setState(() {
-                    wordLists[index]['title'] = title;
-                    wordLists[index]['description'] = description;
+                    int newId = wordLists.length + 1;
+                    wordLists.add({
+                      'id': newId.toString(),
+                      'title': title,
+                      'description': description,
+                    });
                   });
                   _saveWordLists();
                   Navigator.pop(context);
                 } else if (isDuplicate) {
                   Navigator.pop(context);
-                  _showWarningDialog('동일한 제목의 단어장이 이미 존재합니다.', context, () => _showEditDialog(index));
+                  _showWarningDialog('동일한 제목의 단어장이 이미 존재합니다.');
                 }
               },
-              child: const Text('저장'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF6030DF),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                '추가',
+                style: TextStyle(
+                  fontFamily: 'Raleway',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.0,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ],
         );
@@ -186,316 +220,147 @@ class _WordListLibraryState extends State<WordListLibrary> {
     );
   }
 
-  void _showWarningDialog(String message, BuildContext previousContext, Function showPreviousDialog) {
-    showDialog(
-      context: previousContext,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('경고'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('확인'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // 현재 경고 대화상자를 닫음
-                showPreviousDialog();   // 이전 입력 팝업을 다시 띄움
-              },
-              child: const Text('돌아가기'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showDuplicateDialog(int index) {
-    final titleController = TextEditingController(text: '${wordLists[index]['title']} 복사본');
-    final descriptionController = TextEditingController(text: wordLists[index]['description']);
-
-    void showDuplicateDialog() {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('단어장 복사'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    hintText: '새 단어장 제목',
-                  ),
-                ),
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(
-                    hintText: '단어장 설명',
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  final title = titleController.text;
-                  final description = descriptionController.text.isNotEmpty ? descriptionController.text : ' ';
-
-                  bool isDuplicate = wordLists.any((element) => element['title'] == title);
-
-                  if (title.isNotEmpty && !isDuplicate) {
-                    int newId = wordLists.length + 1;
-                    while (wordLists.any((element) => int.parse(element['id']!) == newId)) {
-                      newId++;
-                    }
-
-                    final originalWordListId = int.parse(wordLists[index]['id']!);
-                    bool copySuccess = await _copyWords(originalWordListId, newId);
-
-                    if (copySuccess) {
-                      setState(() {
-                        wordLists.add({
-                          'id': newId.toString(),
-                          'title': title,
-                          'description': description,
-                        });
-                      });
-
-                      _saveWordLists();
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('단어장이 성공적으로 복사되었습니다.')),
-                      );
-                    } else {
-                      Navigator.pop(context);
-                      _showWarningDialog('단어장 복사 중 오류가 발생했습니다.', context, showDuplicateDialog);
-                    }
-                  } else if (isDuplicate) {
-                    Navigator.pop(context);
-                    _showWarningDialog('동일한 제목의 단어장이 이미 존재합니다.', context, showDuplicateDialog);
-                  }
-                },
-                child: const Text('복사'),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    showDuplicateDialog();
-  }
-
-  void _showDeleteDialog(int index) {
+  void _showWarningDialog(String message) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('삭제'),
-          content: const Text('정말 삭제하시겠습니까? 이 단어장과 단어장 내 단어가 모두 삭제됩니다.'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            '경고',
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontWeight: FontWeight.bold,
+              fontSize: 20.0,
+              color: Color(0xFF6030DF), // Updated purple color
+            ),
+          ),
+          content: Text(
+            message,
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 16.0,
+              color: Colors.black,
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () async {
-                final listId = int.parse(wordLists[index]['id']!);
-                await _deleteWordsInList(listId);
-
-                setState(() {
-                  wordLists.removeAt(index);
-                });
-                _saveWordLists();
-                Navigator.pop(context);
-              },
-              child: const Text('삭제'),
+              child: const Text(
+                '확인',
+                style: TextStyle(
+                  fontFamily: 'Raleway',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.0,
+                  color: Colors.grey,
+                ),
+              ),
             ),
           ],
         );
       },
     );
-  }
-
-  Future<void> _deleteWordsInList(int listId) async {
-    if (_database != null && _database!.isOpen) {
-      await _database!.delete(
-        'words',
-        where: 'list_id = ?',
-        whereArgs: [listId],
-      );
-    }
-  }
-
-  Future<bool> _copyWords(int originalListId, int newListId) async {
-    print('단어 복사 시작: 원본 ID=$originalListId, 새 ID=$newListId');
-    await _ensureDatabaseConnected();
-    if (_database != null && _database!.isOpen) {
-      try {
-        final List<Map<String, dynamic>> queryResults = await _database!.query(
-          'words',
-          where: 'list_id = ?',
-          whereArgs: [originalListId],
-        );
-        print('복사할 단어 수: ${queryResults.length}');
-
-        for (var word in queryResults) {
-          await _database!.insert('words', {
-            'word': word['word'],
-            'meaning': word['meaning'],
-            'list_id': newListId,
-            'favorite': word['favorite'],
-          });
-          print('단어 복사됨: ${word['word']}');
-        }
-        print('단어 복사 완료');
-        return true;
-      } catch (e) {
-        print('단어 복사 오류: $e');
-        return false;
-      }
-    }
-    print('데이터베이스가 초기화되지 않았거나 열려있지 않습니다.');
-    return false;
-  }
-
-  @override
-  void dispose() {
-    _database?.close();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          '🏠 단어장 홈',
-          style: TextStyle(color: Colors.white),
+        title: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 15.0),
+          child: const Text(
+            '단어장 홈',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Raleway',
+              fontWeight: FontWeight.bold,
+              fontSize: 20.0,
+              letterSpacing: 1.2,
+            ),
+          ),
         ),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: Color(0xFF6030DF),
+        elevation: 0,
+        centerTitle: true,
       ),
       body: Column(
         children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: wordLists.length,
-              itemBuilder: (context, index) {
-                return Card(
-                  child: ListTile(
-                    title: Text(wordLists[index]['title']!),
-                    subtitle: Text(wordLists[index]['description']!),
-                    leading: const Icon(Icons.folder, color: Colors.deepPurple),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (context, animation, secondaryAnimation) => WordListPage(
-                            listTitle: wordLists[index]['title']!,
-                            listId: int.parse(wordLists[index]['id']!),
-                            wordLists: wordLists,
-                          ),
-                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                            const begin = Offset(1.0, 0.0);
-                            const end = Offset.zero;
-                            const curve = Curves.easeInOut;
-                            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                            return SlideTransition(
-                              position: animation.drive(tween),
-                              child: child,
-                            );
-                          },
-                        ),
-                      );
-                    },
-                    onLongPress: () {
-                      _showEditDeleteDialog(index);
-                    },
+          Container(
+            decoration: BoxDecoration(
+              color: Color(0xFFF5F6FA),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20.0),
+                bottomRight: Radius.circular(20.0),
+              ),
+            ),
+            padding: EdgeInsets.all(10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _showAddWordListDialog,
+                  icon: Icon(Icons.add, color: Colors.white),
+                  label: Text(
+                    '단어장 추가',
+                    style: TextStyle(color: Colors.white),
                   ),
-                );
-              },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF6030DF),
+                  ),
+                ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    final titleController = TextEditingController();
-                    final descriptionController = TextEditingController();
-
-                    return AlertDialog(
-                      title: const Text('새 단어장 추가'),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
+          Expanded(
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 10),
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ListView.builder(
+                itemCount: wordLists.length,
+                itemBuilder: (context, index) {
+                  return Card(
+                    child: ListTile(
+                      contentPadding: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                      leading: CircleAvatar(
+                        radius: 12,
+                        backgroundColor: Color(0xFF6030DF),
+                        child: Icon(Icons.folder, color: Colors.white, size: 16),
+                      ),
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
-                            controller: titleController,
-                            decoration: const InputDecoration(
-                              hintText: '단어장 제목',
+                          Text(
+                            wordLists[index]['title']!,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.0,
                             ),
                           ),
-                          TextField(
-                            controller: descriptionController,
-                            decoration: const InputDecoration(
-                              hintText: '단어장 설명',
+                          Text(
+                            wordLists[index]['description']!,
+                            style: TextStyle(
+                              fontSize: 12.0,
+                              color: Colors.grey,
                             ),
                           ),
                         ],
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text('취소'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            final title = titleController.text;
-                            final description = descriptionController.text.isNotEmpty ? descriptionController.text : ' ';
-
-                            bool isDuplicate = wordLists.any((element) => element['title'] == title);
-
-                            if (title.isNotEmpty && !isDuplicate) {
-                              setState(() {
-                                int newId = wordLists.length + 1;
-                                wordLists.add({
-                                  'id': newId.toString(),
-                                  'title': title,
-                                  'description': description,
-                                });
-                              });
-                              Navigator.pop(context);
-                              _saveWordLists();
-                            } else if (isDuplicate) {
-                              Navigator.pop(context);
-                              _showWarningDialog('동일한 제목의 단어장이 이미 존재합니다.', context, () => showDialog(context: context, builder: (_) => AlertDialog()));
-                            }
-                          },
-                          child: const Text('추가'),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-              child: const Text('+ 새 단어장 추가'),
+                      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      onTap: () {
+                        widget.onFolderTap(wordLists[index]['title']!, int.parse(wordLists[index]['id']!));
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],

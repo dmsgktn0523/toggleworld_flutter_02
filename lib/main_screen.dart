@@ -1,21 +1,17 @@
 import 'package:flutter/material.dart';
 import 'vocabulary_list_screen.dart';
 import 'dictionary_screen.dart';
-import 'word_list_library.dart'; // Import the WordListLibrary screen
+import 'word_list_library.dart';
 
 class MainScreen extends StatefulWidget {
   @override
-  _MainScreenState createState() => _MainScreenState();
+  MainScreenState createState() => MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0; // 리스트를 기본 선택 탭으로 설정
-
-  static List<Widget> _widgetOptions = <Widget>[
-    WordListLibrary(), // Add WordListLibrary to the list
-    VocabularyListScreen(),
-    DictionaryScreen(),
-  ];
+class MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
+  String _currentListTitle = '';
+  int _currentListId = 0;
 
   void _onItemTapped(int index) {
     setState(() {
@@ -23,30 +19,39 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  void updateVocabularyListScreen(String title, int id) {
+    setState(() {
+      _currentListTitle = title;
+      _currentListId = id;
+      _selectedIndex = 1;
+    });
+  }
+
+  void _onBackPressed() {
+    setState(() {
+      _selectedIndex = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
-    bottomNavigationBar: Container(
-      height: 70.0, // 높이를 조정하는 부분
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20.0),
-          topRight: Radius.circular(20.0),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1), // 그림자 색상
-            spreadRadius: 5, // 그림자의 확산 반경
-            blurRadius: 70, // 그림자의 흐림 반경
-            offset: Offset(0, -3), // 그림자의 위치 조정
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          WordListLibrary(
+            onFolderTap: updateVocabularyListScreen,
           ),
+          VocabularyListScreen(
+            key: ValueKey(_currentListId),
+            listTitle: _currentListTitle,
+            listId: _currentListId,
+            onBackPressed: _onBackPressed,  // Add this line
+          ),
+          DictionaryScreen(),
         ],
       ),
-      child: ClipRRect(
+      bottomNavigationBar: ClipRRect(
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20.0),
           topRight: Radius.circular(20.0),
@@ -67,13 +72,11 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ],
           currentIndex: _selectedIndex,
-          selectedItemColor: Color(0xFF6030DF), // Updated purple color
+          selectedItemColor: Color(0xFF6030DF),
           onTap: _onItemTapped,
-          backgroundColor: Colors.white, // Background color for the navigation bar
+          backgroundColor: Colors.white,
         ),
       ),
-    ),
-
     );
   }
 }
