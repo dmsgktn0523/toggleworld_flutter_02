@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart' as path_utils;
+import 'database_helper.dart';
+import 'models/word.dart';
 import 'new_word_page.dart';
 
 class VocabularyListScreen extends StatefulWidget {
   final String listTitle;
   final int listId;
-  final VoidCallback onBackPressed;  // Add this line
+  final VoidCallback onBackPressed;
 
   const VocabularyListScreen({
     Key? key,
     required this.listTitle,
     required this.listId,
-    required this.onBackPressed,  // Add this line
+    required this.onBackPressed,
   }) : super(key: key);
 
   @override
@@ -20,13 +20,13 @@ class VocabularyListScreen extends StatefulWidget {
 }
 
 class _VocabularyListScreenState extends State<VocabularyListScreen> {
-  Database? _database;
-  List<Map<String, String>> vocabularyList = [];
+  List<Word> vocabularyList = [];
+  bool isToggled = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeDatabase();
+    _loadWords();
   }
 
   @override
@@ -37,55 +37,21 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     }
   }
 
-  Future<void> _initializeDatabase() async {
-    try {
-      _database = await initializeDB();
-      await _loadWords();
-    } catch (e) {
-      print('데이터베이스 초기화 오류: $e');
-    }
-  }
-
-  Future<Database> initializeDB() async {
-    String databasesPath = await getDatabasesPath();
-    String path = path_utils.join(databasesPath, 'word_database.db');
-    return openDatabase(
-      path,
-      version: 1,
-      onCreate: (Database db, int version) async {
-        await db.execute(
-          'CREATE TABLE words (id INTEGER PRIMARY KEY AUTOINCREMENT, word TEXT, meaning TEXT, list_id INTEGER, favorite INTEGER)',
-        );
-      },
-    );
-  }
-
   Future<void> _loadWords() async {
-    if (_database != null && _database!.isOpen) {
-      final List<Map<String, dynamic>> queryResults = await _database!.query(
-        'words',
-        where: 'list_id = ?',
-        whereArgs: [widget.listId],
-      );
-      setState(() {
-        vocabularyList = queryResults.map((word) => {
-          'word': word['word'] as String,
-          'meaning': word['meaning'] as String,
-        }).toList();
-      });
-    }
+    final List<Map<String, dynamic>> queryResults = await DatabaseHelper.loadWords(widget.listId);
+    setState(() {
+      vocabularyList = queryResults.map((word) => Word.fromMap(word)).toList();
+    });
   }
 
   void _addNewWord(String word, String meaning) async {
-    if (_database != null && _database!.isOpen) {
-      await _database!.insert('words', {
-        'word': word,
-        'meaning': meaning,
-        'list_id': widget.listId, // 현재 리스트의 ID로 저장
-        'favorite': 0,
-      });
-      await _loadWords(); // 새 단어를 추가한 후 업데이트된 단어 리스트를 로드
-    }
+    await DatabaseHelper.addNewWord(word, meaning, widget.listId);
+    await _loadWords();
+  }
+
+  void _toggleFavorite(int id, bool isFavorite) async {
+    await DatabaseHelper.updateFavorite(id, isFavorite);
+    await _loadWords();
   }
 
   @override
@@ -125,7 +91,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: Color(0xFFF5F6FA), // Light grey background color
+              color: Color(0xFFF5F6FA),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(20.0),
                 bottomRight: Radius.circular(20.0),
@@ -151,23 +117,27 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                   icon: Icon(Icons.add, color: Colors.white),
                   label: Text(
                     '단어 추가',
-                    style: TextStyle(color: Colors.white), // White text color
+                    style: TextStyle(color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF6030DF), // Updated purple color
+                    backgroundColor: Color(0xFF6030DF),
                   ),
                 ),
                 Switch(
-                  value: true, // Example value, change according to your logic
-                  onChanged: (value) {},
-                  activeColor: Color(0xFF6030DF), // Updated purple color
+                  value: isToggled,
+                  onChanged: (value) {
+                    setState(() {
+                      isToggled = value;
+                    });
+                  },
+                  activeColor: Color(0xFF6030DF),
                 ),
               ],
             ),
           ),
           Expanded(
             child: Container(
-              margin: EdgeInsets.symmetric(horizontal: 20), // 양쪽 마진을 줄이려면 이 부분을 수정하세요
+              margin: EdgeInsets.symmetric(horizontal: 20),
               padding: EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -179,28 +149,35 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                   return ListTile(
                     contentPadding: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                     leading: CircleAvatar(
-                      radius: 12, // Smaller size for the CircleAvatar
-                      backgroundColor: Color(0xFF6030DF), // Updated purple color
+                      radius: 12,
+                      backgroundColor: Color(0xFF6030DF),
                       child: Text(
                         '${index + 1}',
-                        style: TextStyle(color: Colors.white, fontSize: 10), // Smaller font size
+                        style: TextStyle(color: Colors.white, fontSize: 10),
                       ),
                     ),
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          vocabularyList[index]['word'] ?? '',
+                          vocabularyList[index].word,
                           style: TextStyle(
-                            fontSize: 14.0, // Smaller font size for the word
+                            fontSize: 14.0,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          vocabularyList[index]['meaning'] ?? '',
-                          style: TextStyle(
-                            fontSize: 12.0, // Smaller font size for the meaning
-                            color: Colors.grey,
+                        Container(
+                          child: isToggled
+                              ? Container(
+                            height: 16.0,
+                            color: Colors.grey[200],
+                          )
+                              : Text(
+                            vocabularyList[index].meaning,
+                            style: TextStyle(
+                              fontSize: 12.0,
+                              color: Colors.grey,
+                            ),
                           ),
                         ),
                       ],
@@ -212,13 +189,20 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                           Icons.search,
                           color: Colors.grey,
                           size: 20,
-                        ), // Adjusted size
+                        ),
                         SizedBox(width: 10),
-                        Icon(
-                          Icons.star_border,
-                          color: Color(0xFF6030DF), // Purple color for the favorite icon
-                          size: 20,
-                        ), // Adjusted size
+                        GestureDetector(
+                          onTap: () {
+                            _toggleFavorite(vocabularyList[index].id, vocabularyList[index].favorite == 0);
+                          },
+                          child: Icon(
+                            vocabularyList[index].favorite == 1
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Color(0xFF6030DF),
+                            size: 20,
+                          ),
+                        ),
                       ],
                     ),
                   );

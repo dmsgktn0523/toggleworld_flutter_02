@@ -46,7 +46,7 @@ class MainScreenState extends State<MainScreen> {
             key: ValueKey(_currentListId),
             listTitle: _currentListTitle,
             listId: _currentListId,
-            onBackPressed: _onBackPressed,  // Add this line
+            onBackPressed: _onBackPressed,
           ),
           DictionaryScreen(),
         ],
