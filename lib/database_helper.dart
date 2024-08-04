@@ -1,11 +1,12 @@
+// database_helper.dart
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart'; // 수정된 부분
+import 'package:path/path.dart'; // Import for path management
 import 'models/word.dart';
 
 class DatabaseHelper {
   static Future<Database> initializeDB() async {
     String databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'word_database.db'); // 수정된 부분
+    String path = join(databasesPath, 'word_database.db');
     return openDatabase(
       path,
       version: 1,
@@ -32,11 +33,11 @@ class DatabaseHelper {
     });
   }
 
-  static Future<void> updateFavorite(int id, bool isFavorite) async {
+  static Future<void> updateFavorite(int id, int isFavorite) async {
     final db = await initializeDB();
     await db.update(
       'words',
-      {'favorite': isFavorite ? 1 : 0},
+      {'favorite': isFavorite},
       where: 'id = ?',
       whereArgs: [id],
     );
