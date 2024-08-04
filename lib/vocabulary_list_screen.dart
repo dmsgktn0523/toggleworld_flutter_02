@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_switch/flutter_switch.dart'; // Import FlutterSwitch
+import 'dart:math'; // For random sorting
 import 'database_helper.dart';
 import 'models/word.dart';
 import 'new_word_page.dart';
-import 'dart:math'; // For random sorting
 
 class VocabularyListScreen extends StatefulWidget {
   final String listTitle;
@@ -318,14 +319,20 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                     backgroundColor: const Color(0xFF6030DF),
                   ),
                 ),
-                Switch(
+                FlutterSwitch(
                   value: isToggled,
-                  onChanged: (value) {
+                  onToggle: (value) {
                     setState(() {
                       isToggled = value;
                     });
                   },
-                  activeColor: const Color(0xFF6030DF),
+                  activeColor: const Color(0xFF6030DF), // Active state thumb color
+                  inactiveColor: Colors.grey[300]!, // Light grey for inactive track, creates border effect
+                  inactiveToggleColor: Colors.white, // Thumb color when inactive
+                  width: 60.0, // Width of the switch
+                  height: 35.0, // Height of the switch
+                  toggleSize: 20.0, // Size of the thumb
+                  borderRadius: 20.0, // Border radius for round edges
                 ),
               ],
             ),
