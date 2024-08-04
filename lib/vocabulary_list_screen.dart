@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'models/word.dart';
 import 'new_word_page.dart';
+import 'dart:math'; // For random sorting
 
 class VocabularyListScreen extends StatefulWidget {
   final String listTitle;
@@ -23,6 +24,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   List<Word> vocabularyList = [];
   bool isToggled = false;
   bool hideWord = false;
+  String sortOrder = 'A-Z'; // Default sort order
 
   @override
   void initState() {
@@ -39,10 +41,10 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   }
 
   Future<void> _loadWords() async {
-    final List<Map<String, dynamic>> queryResults =
-    await DatabaseHelper.loadWords(widget.listId);
+    final List<Map<String, dynamic>> queryResults = await DatabaseHelper.loadWords(widget.listId);
     setState(() {
       vocabularyList = queryResults.map((word) => Word.fromMap(word)).toList();
+      _sortWords(); // Ensure words are sorted on load
     });
   }
 
@@ -60,6 +62,101 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
       // Update local list
       word.favorite = newFavorite;
     });
+  }
+
+  void _sortWords() {
+    setState(() {
+      switch (sortOrder) {
+        case 'A-Z':
+          vocabularyList.sort((a, b) => a.word.compareTo(b.word));
+          break;
+        case 'Z-A':
+          vocabularyList.sort((a, b) => b.word.compareTo(a.word));
+          break;
+        case 'Recent':
+          vocabularyList.sort((a, b) => b.id.compareTo(a.id));
+          break;
+        case 'Oldest':
+          vocabularyList.sort((a, b) => a.id.compareTo(b.id));
+          break;
+        case 'Random':
+          vocabularyList.shuffle(Random());
+          break;
+        case 'Favorites':
+          vocabularyList.sort((a, b) {
+            if (a.favorite != b.favorite) {
+              return b.favorite.compareTo(a.favorite);
+            } else {
+              return a.word.compareTo(b.word);
+            }
+          });
+          break;
+      }
+    });
+  }
+
+  void _showSortMenu() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('정렬하기'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                title: const Text('A-Z 순'),
+                onTap: () {
+                  sortOrder = 'A-Z';
+                  Navigator.pop(context);
+                  _sortWords();
+                },
+              ),
+              ListTile(
+                title: const Text('Z-A 순'),
+                onTap: () {
+                  sortOrder = 'Z-A';
+                  Navigator.pop(context);
+                  _sortWords();
+                },
+              ),
+              ListTile(
+                title: const Text('최신 저장순'),
+                onTap: () {
+                  sortOrder = 'Recent';
+                  Navigator.pop(context);
+                  _sortWords();
+                },
+              ),
+              ListTile(
+                title: const Text('오래된순'),
+                onTap: () {
+                  sortOrder = 'Oldest';
+                  Navigator.pop(context);
+                  _sortWords();
+                },
+              ),
+              ListTile(
+                title: const Text('랜덤순'),
+                onTap: () {
+                  sortOrder = 'Random';
+                  Navigator.pop(context);
+                  _sortWords();
+                },
+              ),
+              ListTile(
+                title: const Text('즐겨찾기순'),
+                onTap: () {
+                  sortOrder = 'Favorites';
+                  Navigator.pop(context);
+                  _sortWords();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showOptionsMenu() {
@@ -83,7 +180,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                 leading: const Icon(Icons.sort, color: Colors.black),
                 title: const Text('정렬하기'),
                 onTap: () {
-                  // Add sorting functionality here
                   Navigator.pop(context);
                   _showSortMenu();
                 },
@@ -92,46 +188,8 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                 leading: const Icon(Icons.visibility, color: Colors.black),
                 title: const Text('보기 설정'),
                 onTap: () {
-                  // Add view setting functionality here
                   Navigator.pop(context);
                   _showViewSettingsDialog();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showSortMenu() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('정렬하기'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                title: const Text('A-Z 순'),
-                onTap: () {
-                  // Sort logic for A-Z
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text('Z-A 순'),
-                onTap: () {
-                  // Sort logic for Z-A
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text('즐겨찾기순'),
-                onTap: () {
-                  // Sort logic for favorite
-                  Navigator.pop(context);
                 },
               ),
             ],
@@ -324,7 +382,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                           ],
                         ),
                         AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
+                          duration: const Duration(milliseconds: 100),
                           height: textHeight, // Keep height consistent
                           child: Stack(
                             children: [
