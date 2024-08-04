@@ -51,30 +51,42 @@ class MainScreenState extends State<MainScreen> {
           DictionaryScreen(),
         ],
       ),
-      bottomNavigationBar: ClipRRect(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20.0),
-          topRight: Radius.circular(20.0),
-        ),
-        child: BottomNavigationBar(
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(Icons.list),
-              label: '리스트',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.book),
-              label: '단어장',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.language),
-              label: '영어사전',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1), // Shadow color
+              blurRadius: 15, // How blurry the shadow is
+              spreadRadius: 1, // How much the shadow spreads
+              offset: Offset(0, -2), // Position of the shadow
             ),
           ],
-          currentIndex: _selectedIndex,
-          selectedItemColor: Color(0xFF6030DF),
-          onTap: _onItemTapped,
-          backgroundColor: Colors.white,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20.0),
+            topRight: Radius.circular(20.0),
+          ),
+          child: BottomNavigationBar(
+            items: const <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(Icons.list),
+                label: '리스트',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.book),
+                label: '단어장',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.language),
+                label: '영어사전',
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            selectedItemColor: Color(0xFF6030DF),
+            onTap: _onItemTapped,
+            backgroundColor: Colors.white,
+          ),
         ),
       ),
     );
