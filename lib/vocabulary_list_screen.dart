@@ -4,6 +4,7 @@ import 'dart:math'; // For random sorting
 import 'database_helper.dart';
 import 'models/word.dart';
 import 'new_word_page.dart';
+import 'dart:async'; // Timer를 사용하기 위해 추가
 
 
 
@@ -285,14 +286,15 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
 
 
   OverlayEntry? _overlayEntry;
+  Timer? _timer;
 
   void _showCustomSnackbar(BuildContext context, String message) {
-    // Hide the existing overlay entry if it exists
+    // 기존에 표시된 스낵바가 있다면 제거
     _hideCustomSnackbar();
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: MediaQuery.of(context).size.height * 0.87,
+        top: MediaQuery.of(context).size.height * 0.87, // 스낵바의 위치
         left: 30.0,
         right: 30.0,
         child: Material(
@@ -300,16 +302,16 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
             decoration: BoxDecoration(
-              color: const Color(0xFF6030DF).withOpacity(0.8),
+              color: const Color(0xFF6030DF).withOpacity(0.8), // 연한 보라색 배경
               borderRadius: BorderRadius.circular(20.0),
             ),
             child: Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14.0,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+                fontSize: 14.0, // 작은 글씨 크기
+                fontWeight: FontWeight.bold, // 굵은 글씨
+                color: Colors.white, // 흰색 글씨
               ),
             ),
           ),
@@ -317,18 +319,23 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
       ),
     );
 
-
-    // Insert the overlay entry into the overlay
+    // 새로 생성된 오버레이를 추가
     Overlay.of(context)?.insert(_overlayEntry!);
 
-    // Automatically remove the overlay after 1 second
-    Future.delayed(const Duration(seconds: 1), _hideCustomSnackbar);
+    // 기존 타이머를 취소하고 새 타이머 시작
+    _timer?.cancel();
+
+    // 1초 후에 스낵바를 숨김
+    _timer = Timer(const Duration(seconds: 1), _hideCustomSnackbar);
   }
 
   void _hideCustomSnackbar() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+    _timer?.cancel();
+    _timer = null;
   }
+
 
 
 
