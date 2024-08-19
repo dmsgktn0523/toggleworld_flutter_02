@@ -359,6 +359,10 @@ class _WordListLibraryState extends State<WordListLibrary> {
                       onTap: () {
                         widget.onFolderTap(wordLists[index]['title']!, int.parse(wordLists[index]['id']!));
                       },
+                      onLongPress: () {
+                        _showDeleteDialog(index);
+                      },
+
                     ),
                   );
                 },
@@ -369,4 +373,117 @@ class _WordListLibraryState extends State<WordListLibrary> {
       ),
     );
   }
+
+
+  void _deleteFolder(int index) async {
+    int listId = int.parse(wordLists[index]['id']!);
+
+    await _deleteWordsByListId(listId);
+
+    setState(() {
+      wordLists.removeAt(index);
+    });
+
+    await _saveWordLists();
+
+    // 1초 후 다시 로드
+    Future.delayed(Duration(seconds: 1), () async {
+      await _loadWordLists();
+    });
+  }
+
+
+
+// 특정 list_id와 연결된 모든 단어를 데이터베이스에서 삭제
+  Future<void> _deleteWordsByListId(int listId) async {
+    await _ensureDatabaseConnected();
+    await _database?.delete(
+      'words',
+      where: 'list_id = ?',
+      whereArgs: [listId],
+    );
+
+    // 삭제 후 쿼리로 데이터베이스 확인
+    final List<Map<String, dynamic>> remainingWords = await _database?.query(
+      'words',
+      where: 'list_id = ?',
+      whereArgs: [listId],
+    ) ?? [];
+
+    if (remainingWords.isEmpty) {
+      print('모든 단어가 삭제되었습니다.');
+    } else {
+      print('삭제되지 않은 단어가 있습니다: $remainingWords');
+    }
+  }
+
+
+  void _showDeleteDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            '폴더 삭제',
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontWeight: FontWeight.bold,
+              fontSize: 20.0,
+              color: Color(0xFF6030DF), // Updated purple color
+            ),
+          ),
+          content: const Text(
+            '이 폴더와 해당 폴더의 모든 단어를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 16.0,
+              color: Colors.black,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                '취소',
+                style: TextStyle(
+                  fontFamily: 'Raleway',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.0,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _deleteFolder(index);
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF6030DF),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                '삭제',
+                style: TextStyle(
+                  fontFamily: 'Raleway',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16.0,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 }
+
