@@ -24,8 +24,19 @@ class _NewWordPageState extends State<NewWordPage> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         appBar: AppBar(
-          title: const Text('단어 추가', style: TextStyle(fontFamily: 'Raleway', color: Colors.white)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+          title: const Text(
+            '단어 추가',
+            style: TextStyle(fontFamily: 'Raleway', color: Colors.white),
+          ),
           bottom: const TabBar(
+            labelColor: Colors.white, // 선택된 탭의 텍스트 색상을 흰색으로 설정
+            unselectedLabelColor: Colors.white54, // 선택되지 않은 탭의 텍스트 색상을 연한 흰색으로 설정
             tabs: [
               Tab(icon: Icon(Icons.add), text: '간단 추가'),
               Tab(icon: Icon(Icons.list), text: '멀티 추가'),
@@ -42,6 +53,8 @@ class _NewWordPageState extends State<NewWordPage> {
       ),
     );
   }
+
+
 
   Widget simpleAddTab() {
     return LayoutBuilder(

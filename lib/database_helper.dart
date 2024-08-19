@@ -42,4 +42,16 @@ class DatabaseHelper {
       whereArgs: [id],
     );
   }
+
+
+  static Future<void> deleteWord(int id) async {
+    final db = await initializeDB();  // DB 초기화
+    await db.delete(
+      'words',  // 테이블 이름
+      where: 'id = ?',  // 삭제할 항목을 찾기 위한 조건
+      whereArgs: [id],  // 조건에 해당하는 값
+    );
+  }
+
 }
+
