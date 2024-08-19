@@ -18,6 +18,16 @@ class DatabaseHelper {
     );
   }
 
+  static Future<void> updateWord(int id, String newWord, String newMeaning) async {
+    final db = await initializeDB();
+    await db.update(
+      'words',
+      {'word': newWord, 'meaning': newMeaning},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   static Future<List<Map<String, dynamic>>> loadWords(int listId) async {
     final db = await initializeDB();
     return await db.query('words', where: 'list_id = ?', whereArgs: [listId]);
@@ -53,5 +63,8 @@ class DatabaseHelper {
     );
   }
 
+
 }
+
+
 

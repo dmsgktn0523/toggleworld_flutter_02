@@ -274,6 +274,91 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     );
   }
 
+  void _editWord(Word word) {
+    final TextEditingController wordController = TextEditingController(text: word.word);
+    final TextEditingController meaningController = TextEditingController(text: word.meaning);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('단어 수정'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: wordController,
+                decoration: const InputDecoration(
+                  labelText: '단어',
+                ),
+              ),
+              TextField(
+                controller: meaningController,
+                decoration: const InputDecoration(
+                  labelText: '뜻',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await DatabaseHelper.updateWord(
+                  word.id,
+                  wordController.text,
+                  meaningController.text,
+                );
+                Navigator.pop(context);
+                _loadWords(); // 리스트 갱신
+              },
+              child: const Text('저장'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  void _confirmDeleteWord(int id) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('단어 삭제'),
+          content: const Text('정말로 이 단어를 삭제하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await DatabaseHelper.deleteWord(id);
+                Navigator.pop(context);
+                _loadWords(); // 리스트 갱신
+              },
+              child: const Text('삭제'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white, // 빨간색 삭제 버튼
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
+
+
 
   double _calculateTextHeight(String text, TextStyle style, double maxWidth) {
     final TextPainter textPainter = TextPainter(
@@ -437,6 +522,17 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                   ),
                 if (isEditing)
 
+                        const Text(
+                          '전체 선택',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+
+
                   const Spacer(), // CheckBox를 좌측에 위치하도록 공간을 확보
                 if (!isEditing)
                   FlutterSwitch(
@@ -556,7 +652,34 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
 
 
 
-                    trailing: Row(
+                    trailing: isEditing
+                        ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            _editWord(word);
+                          },
+                          child: const Icon(
+                            Icons.edit,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () {
+                            _confirmDeleteWord(word.id);
+                          },
+                          child: const Icon(
+                            Icons.delete,
+                            color: Color(0xFF6030DF),
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    )
+                        : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
@@ -577,6 +700,16 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                         ),
                       ],
                     ),
+
+                    onLongPress: () {
+                      setState(() {
+                        isEditing = true;
+                        selectedWords.add(word.id); // 편집 모드로 전환 시, 현재 단어 선택
+                      });
+                    },
+
+
+
                   );
                 },
                 separatorBuilder: (context, index) => const Divider(
