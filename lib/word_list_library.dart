@@ -1,10 +1,11 @@
-//page2
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart' as path_utils;
+import 'package:sqflite/sqflite.dart'; // SQLite 데이터베이스 패키지
+import 'package:path_provider/path_provider.dart'; // 파일 저장 경로
+import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences
+import 'dart:io'; // 파일 입출력
+import 'dart:convert'; // utf8 인코딩
+import 'database_helper.dart'; // DatabaseHelper 클래스 가져오기
+import 'package:csv/csv.dart'; // CSV 변환 패키지
 
 class WordListLibrary extends StatefulWidget {
   final Function(String, int) onFolderTap;
@@ -19,13 +20,6 @@ class _WordListLibraryState extends State<WordListLibrary> {
   List<Map<String, String>> wordLists = [];
   Database? _database;
 
-  Future<void> _ensureDatabaseConnected() async {
-    if (_database == null || !_database!.isOpen) {
-      print('데이터베이스 재연결 시도');
-      _database = await initializeDB();
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -34,25 +28,11 @@ class _WordListLibraryState extends State<WordListLibrary> {
 
   Future<void> _initializeDatabase() async {
     try {
-      _database = await initializeDB();
+      _database = await DatabaseHelper.initializeDB();
       await _loadWordLists();
     } catch (e) {
       print('데이터베이스 초기화 오류: $e');
     }
-  }
-
-  Future<Database> initializeDB() async {
-    String databasesPath = await getDatabasesPath();
-    String path = path_utils.join(databasesPath, 'word_database.db');
-    return openDatabase(
-      path,
-      version: 1,
-      onCreate: (Database db, int version) async {
-        await db.execute(
-          'CREATE TABLE words (id INTEGER PRIMARY KEY AUTOINCREMENT, word TEXT, meaning TEXT, list_id INTEGER, favorite INTEGER)',
-        );
-      },
-    );
   }
 
   Future<void> _loadWordLists() async {
@@ -63,18 +43,10 @@ class _WordListLibraryState extends State<WordListLibrary> {
       List<dynamic> jsonList = jsonDecode(wordListsString);
       List<Map<String, String>> loadedWordLists = jsonList.map((item) => Map<String, String>.from(item)).toList();
 
-      // Ensure each word list has a unique `list_id`
-      for (int i = 0; i < loadedWordLists.length; i++) {
-        if (!loadedWordLists[i].containsKey('id')) {
-          loadedWordLists[i]['id'] = (i + 1).toString();
-        }
-      }
-
       setState(() {
         wordLists = loadedWordLists;
       });
     } else {
-      // Initialize with default word lists
       setState(() {
         wordLists = [
           {'id': '1', 'title': 'day01', 'description': 'Commonly used words for daily conversation.'},
@@ -82,7 +54,7 @@ class _WordListLibraryState extends State<WordListLibrary> {
           {'id': '3', 'title': '유행어', 'description': 'Vocabulary for technical and scientific terms.'},
         ];
       });
-      _saveWordLists(); // Save the default word lists with `id`
+      _saveWordLists();
     }
   }
 
@@ -92,175 +64,98 @@ class _WordListLibraryState extends State<WordListLibrary> {
     await prefs.setString('wordLists', jsonString);
   }
 
-  void _showAddWordListDialog() {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
+  // CSV 내보내기 기능 구현
+  Future<void> _exportWordListToCSV(String listTitle, int listId) async {
+    try {
+      // 선택된 단어장의 단어들 가져오기
+      List<Map<String, dynamic>> words = await DatabaseHelper.loadWords(listId);
+
+      // CSV로 변환할 데이터 준비
+      List<List<String>> csvData = [
+        ['Word', 'Meaning'] // CSV 파일 헤더
+      ];
+
+      for (var word in words) {
+        csvData.add([word['word'], word['meaning']]);
+      }
+
+      // CSV 문자열 생성
+      String csv = const ListToCsvConverter().convert(csvData);
+
+      // 기본 저장소 디렉토리의 Documents 폴더 경로 가져오기
+      final directory = await getExternalStorageDirectory();
+      final documentsDir = Directory('${directory!.path}/Documents');
+
+      // Documents 폴더가 없으면 생성
+      if (!await documentsDir.exists()) {
+        await documentsDir.create(recursive: true);
+      }
+
+      final path = '${documentsDir.path}/$listTitle.csv';
+
+
+
+      // 파일 저장
+      final file = File(path);
+      await file.writeAsString(csv, encoding: utf8);
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$listTitle 단어장을 CSV로 내보냈습니다: $path'),
+      ));
+    } catch (e) {
+      print('CSV 내보내기 오류: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('CSV 내보내기 중 오류가 발생했습니다.'),
+      ));
+    }
+  }
+
+  void _showExportDialog() {
+    if (wordLists.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('단어장이 없습니다.')),
+      );
+      return;
+    }
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        String selectedListTitle = wordLists.first['title']!;
+        int selectedListId = int.parse(wordLists.first['id']!);
+
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            '새 단어장 추가',
-            style: TextStyle(
-              fontFamily: 'Raleway',
-              fontWeight: FontWeight.bold,
-              fontSize: 20.0,
-              color: Color(0xFF6030DF), // Updated purple color
+          title: const Text('단어장 내보내기'),
+          content: DropdownButtonFormField<String>(
+            value: selectedListTitle,
+            items: wordLists.map((list) {
+              return DropdownMenuItem<String>(
+                value: list['title'],
+                child: Text(list['title']!),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedListTitle = value!;
+                selectedListId = int.parse(wordLists.firstWhere((list) => list['title'] == value)['id']!);
+              });
+            },
+            decoration: const InputDecoration(
+              labelText: '내보낼 단어장 선택',
+              border: OutlineInputBorder(),
             ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: InputDecoration(
-                  hintText: '단어장 제목',
-                  hintStyle: TextStyle(
-                    fontFamily: 'Raleway',
-                    color: Colors.grey,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: Color(0xFF6030DF), // Updated purple color
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: Color(0xFF6030DF), // Updated purple color
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: descriptionController,
-                decoration: InputDecoration(
-                  hintText: '단어장 설명',
-                  hintStyle: TextStyle(
-                    fontFamily: 'Raleway',
-                    color: Colors.grey,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: Color(0xFF6030DF), // Updated purple color
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: Color(0xFF6030DF), // Updated purple color
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text(
-                '취소',
-                style: TextStyle(
-                  fontFamily: 'Raleway',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16.0,
-                  color: Colors.grey,
-                ),
-              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
             ),
             ElevatedButton(
               onPressed: () {
-                final title = titleController.text;
-                final description = descriptionController.text.isNotEmpty ? descriptionController.text : ' ';
-
-                bool isDuplicate = wordLists.any((element) => element['title'] == title);
-
-                if (title.isNotEmpty && !isDuplicate) {
-                  setState(() {
-                    int newId = wordLists.length + 1;
-                    wordLists.add({
-                      'id': newId.toString(),
-                      'title': title,
-                      'description': description,
-                    });
-                  });
-                  _saveWordLists();
-                  Navigator.pop(context);
-                } else if (isDuplicate) {
-                  Navigator.pop(context);
-                  _showWarningDialog('동일한 제목의 단어장이 이미 존재합니다.');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF6030DF),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text(
-                '추가',
-                style: TextStyle(
-                  fontFamily: 'Raleway',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16.0,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showWarningDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            '경고',
-            style: TextStyle(
-              fontFamily: 'Raleway',
-              fontWeight: FontWeight.bold,
-              fontSize: 20.0,
-              color: Color(0xFF6030DF), // Updated purple color
-            ),
-          ),
-          content: Text(
-            message,
-            style: TextStyle(
-              fontFamily: 'Raleway',
-              fontSize: 16.0,
-              color: Colors.black,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
+                _exportWordListToCSV(selectedListTitle, selectedListId);
                 Navigator.pop(context);
               },
-              child: const Text(
-                '확인',
-                style: TextStyle(
-                  fontFamily: 'Raleway',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16.0,
-                  color: Colors.grey,
-                ),
-              ),
+              child: const Text('내보내기'),
             ),
           ],
         );
@@ -272,46 +167,45 @@ class _WordListLibraryState extends State<WordListLibrary> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 15.0),
-          child: const Text(
-            '단어장 홈',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Raleway',
-              fontWeight: FontWeight.bold,
-              fontSize: 20.0,
-              letterSpacing: 1.2,
-            ),
+        title: const Text('단어장 홈', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF6030DF),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.upload, color: Colors.white), // 내보내기 아이콘으로 수정
+            onPressed: _showExportDialog,
           ),
-        ),
-        backgroundColor: Color(0xFF6030DF),
-        elevation: 0,
-        centerTitle: true,
+          IconButton(
+            icon: const Icon(Icons.download, color: Colors.white), // 가져오기 아이콘으로 수정
+            onPressed: () {
+              // 가져오기 기능 추가 예정
+            },
+          ),
+        ],
+
       ),
       body: Column(
         children: [
           Container(
             decoration: BoxDecoration(
-              color: Color(0xFFF5F6FA),
-              borderRadius: BorderRadius.only(
+              color: const Color(0xFFF5F6FA),
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(20.0),
                 bottomRight: Radius.circular(20.0),
               ),
             ),
-            padding: EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 ElevatedButton.icon(
-                  onPressed: _showAddWordListDialog,
-                  icon: Icon(Icons.add, color: Colors.white),
-                  label: Text(
+                  onPressed: () => _showAddWordListDialog(),
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  label: const Text(
                     '단어장 추가',
                     style: TextStyle(color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF6030DF),
+                    backgroundColor: const Color(0xFF6030DF),
                   ),
                 ),
               ],
@@ -319,8 +213,8 @@ class _WordListLibraryState extends State<WordListLibrary> {
           ),
           Expanded(
             child: Container(
-              margin: EdgeInsets.symmetric(horizontal: 10),
-              padding: EdgeInsets.all(10),
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
@@ -330,39 +224,38 @@ class _WordListLibraryState extends State<WordListLibrary> {
                 itemBuilder: (context, index) {
                   return Card(
                     child: ListTile(
-                      contentPadding: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                       leading: CircleAvatar(
                         radius: 12,
-                        backgroundColor: Color(0xFF6030DF),
-                        child: Icon(Icons.folder, color: Colors.white, size: 16),
+                        backgroundColor: const Color(0xFF6030DF),
+                        child: const Icon(Icons.folder, color: Colors.white, size: 16),
                       ),
                       title: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             wordLists[index]['title']!,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14.0,
                             ),
                           ),
                           Text(
                             wordLists[index]['description']!,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12.0,
                               color: Colors.grey,
                             ),
                           ),
                         ],
                       ),
-                      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                       onTap: () {
                         widget.onFolderTap(wordLists[index]['title']!, int.parse(wordLists[index]['id']!));
                       },
                       onLongPress: () {
                         _showDeleteDialog(index);
                       },
-
                     ),
                   );
                 },
@@ -374,49 +267,9 @@ class _WordListLibraryState extends State<WordListLibrary> {
     );
   }
 
-
-  void _deleteFolder(int index) async {
-    int listId = int.parse(wordLists[index]['id']!);
-
-    await _deleteWordsByListId(listId);
-
-    setState(() {
-      wordLists.removeAt(index);
-    });
-
-    await _saveWordLists();
-
-    // 1초 후 다시 로드
-    Future.delayed(Duration(seconds: 1), () async {
-      await _loadWordLists();
-    });
+  void _showAddWordListDialog() {
+    // Add word list dialog implementation here
   }
-
-
-
-// 특정 list_id와 연결된 모든 단어를 데이터베이스에서 삭제
-  Future<void> _deleteWordsByListId(int listId) async {
-    await _ensureDatabaseConnected();
-    await _database?.delete(
-      'words',
-      where: 'list_id = ?',
-      whereArgs: [listId],
-    );
-
-    // 삭제 후 쿼리로 데이터베이스 확인
-    final List<Map<String, dynamic>> remainingWords = await _database?.query(
-      'words',
-      where: 'list_id = ?',
-      whereArgs: [listId],
-    ) ?? [];
-
-    if (remainingWords.isEmpty) {
-      print('모든 단어가 삭제되었습니다.');
-    } else {
-      print('삭제되지 않은 단어가 있습니다: $remainingWords');
-    }
-  }
-
 
   void _showDeleteDialog(int index) {
     showDialog(
@@ -432,11 +285,11 @@ class _WordListLibraryState extends State<WordListLibrary> {
               fontFamily: 'Raleway',
               fontWeight: FontWeight.bold,
               fontSize: 20.0,
-              color: Color(0xFF6030DF), // Updated purple color
+              color: Color(0xFF6030DF),
             ),
           ),
           content: const Text(
-            '이 폴더와 해당 폴더의 모든 단어를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+            '이 폴더를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
             style: TextStyle(
               fontFamily: 'Raleway',
               fontSize: 16.0,
@@ -464,7 +317,7 @@ class _WordListLibraryState extends State<WordListLibrary> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF6030DF),
+                backgroundColor: const Color(0xFF6030DF),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -485,5 +338,10 @@ class _WordListLibraryState extends State<WordListLibrary> {
     );
   }
 
+  void _deleteFolder(int index) {
+    setState(() {
+      wordLists.removeAt(index);
+    });
+    _saveWordLists();
+  }
 }
-
