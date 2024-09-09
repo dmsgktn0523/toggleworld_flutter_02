@@ -35,14 +35,14 @@ class _NewWordPageState extends State<NewWordPage> {
             style: TextStyle(fontFamily: 'Raleway', color: Colors.white),
           ),
           bottom: const TabBar(
-            labelColor: Colors.white, // 선택된 탭의 텍스트 색상을 흰색으로 설정
-            unselectedLabelColor: Colors.white54, // 선택되지 않은 탭의 텍스트 색상을 연한 흰색으로 설정
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white54,
             tabs: [
               Tab(icon: Icon(Icons.add), text: '간단 추가'),
               Tab(icon: Icon(Icons.list), text: '멀티 추가'),
             ],
           ),
-          backgroundColor: Color(0xFF6030DF), // Updated purple color
+          backgroundColor: Color(0xFF6030DF),
         ),
         body: TabBarView(
           children: [
@@ -53,8 +53,6 @@ class _NewWordPageState extends State<NewWordPage> {
       ),
     );
   }
-
-
 
   Widget simpleAddTab() {
     return LayoutBuilder(
@@ -167,6 +165,10 @@ class _NewWordPageState extends State<NewWordPage> {
               translateMultipleWords(words);
             } else {
               final meaning = translationController.text.trim();
+              if (meaning.isEmpty) {
+                showSnackbar('번역된 뜻이 없습니다. ⚠️', 500);
+                return;
+              }
               widget.onAddWord(words, meaning);
               showSnackbar('$words 추가 완료 ✅', 100);
             }
@@ -175,7 +177,7 @@ class _NewWordPageState extends State<NewWordPage> {
             translationController.clear();
           },
           style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(Color(0xFF6030DF)), // Updated purple color
+            backgroundColor: MaterialStateProperty.all(Color(0xFF6030DF)),
           ),
           child: const Text('단어 추가', style: TextStyle(color: Colors.white)),
         ),
@@ -208,7 +210,7 @@ class _NewWordPageState extends State<NewWordPage> {
       var document = parse(response.body);
       var translation = document.querySelector("p.mean.api_txt_lines")?.text;
       setState(() {
-        translationController.text = translation ?? " ";
+        translationController.text = translation?.trim() ?? " ";
       });
     } catch (e) {
       setState(() {
@@ -230,9 +232,13 @@ class _NewWordPageState extends State<NewWordPage> {
     try {
       final response = await http.get(Uri.parse("https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=$word+%EB%9C%BB"));
       var document = parse(response.body);
-      var translation = document.querySelector("p.mean.api_txt_lines")?.text ?? " ";
-      widget.onAddWord(word, translation);
-      showSnackbar('$word 추가 완료 ✅', 10);
+      var translation = document.querySelector("p.mean.api_txt_lines")?.text?.trim() ?? " ";
+      if (translation.isNotEmpty && translation != " ") {
+        widget.onAddWord(word, translation);
+        showSnackbar('$word 추가 완료 ✅', 10);
+      } else {
+        showSnackbar('$word 번역 결과가 없습니다 ⚠️', 500);
+      }
     } catch (e) {
       showSnackbar('$word 번역 실패 ⚠️', 500);
     }

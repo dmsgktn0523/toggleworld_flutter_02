@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart'; // SQLite 데이터베이스 패키지
-import 'package:path_provider/path_provider.dart'; // 파일 저장 경로
-import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences
-import 'dart:io'; // 파일 입출력
-import 'dart:convert'; // utf8 인코딩
-import 'database_helper.dart'; // DatabaseHelper 클래스 가져오기
+import 'package:sqflite/sqflite.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:csv/csv.dart'; // CSV 변환 패키지
+import 'package:file_picker/file_picker.dart'; // 파일 선택 패키지
+import 'dart:io';
+import 'dart:convert';
+import 'database_helper.dart';
+
 
 class WordListLibrary extends StatefulWidget {
   final Function(String, int) onFolderTap;
@@ -24,6 +26,52 @@ class _WordListLibraryState extends State<WordListLibrary> {
   void initState() {
     super.initState();
     _initializeDatabase();
+  }
+
+  // CSV 파일 가져오기 기능
+  Future<void> _importCSV() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+
+    if (result != null) {
+      File file = File(result.files.single.path!);
+      String fileName = file.path.split('/').last.split('.').first; // 파일 이름에서 확장자 제거
+
+      // 새 단어장 생성
+      await DatabaseHelper.addNewWordList(fileName, 'Imported from CSV');
+
+      // 방금 생성된 단어장의 ID 가져오기
+      List<Map<String, dynamic>> allLists = await DatabaseHelper.getAllWordLists();
+      int newListId = allLists.last['id']; // 최신 추가된 단어장의 ID를 가져옴
+
+      // CSV 파일 읽기
+      final input = file.openRead();
+      final fields = await input
+          .transform(utf8.decoder)
+          .transform(CsvToListConverter())
+          .toList();
+
+      // 데이터베이스에 저장
+      for (int i = 1; i < fields.length; i++) {
+        String word = fields[i][0].toString();
+        String meaning = fields[i][1].toString();
+
+        // 단어 추가
+        await DatabaseHelper.addNewWord(word, meaning, newListId);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$fileName 단어장을 성공적으로 생성하고 내용을 불러왔습니다.')),
+      );
+
+      await _loadWordLists(); // UI 업데이트를 위해 단어장 목록 새로고침
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('파일 선택을 취소하셨습니다.')),
+      );
+    }
   }
 
   Future<void> _initializeDatabase() async {
@@ -64,38 +112,24 @@ class _WordListLibraryState extends State<WordListLibrary> {
     await prefs.setString('wordLists', jsonString);
   }
 
-  // CSV 내보내기 기능 구현
   Future<void> _exportWordListToCSV(String listTitle, int listId) async {
     try {
-      // 선택된 단어장의 단어들 가져오기
       List<Map<String, dynamic>> words = await DatabaseHelper.loadWords(listId);
-
-      // CSV로 변환할 데이터 준비
-      List<List<String>> csvData = [
-        ['Word', 'Meaning'] // CSV 파일 헤더
-      ];
+      List<List<String>> csvData = [['Word', 'Meaning']];
 
       for (var word in words) {
         csvData.add([word['word'], word['meaning']]);
       }
 
-      // CSV 문자열 생성
       String csv = const ListToCsvConverter().convert(csvData);
-
-      // 기본 저장소 디렉토리의 Documents 폴더 경로 가져오기
       final directory = await getExternalStorageDirectory();
       final documentsDir = Directory('${directory!.path}/Documents');
 
-      // Documents 폴더가 없으면 생성
       if (!await documentsDir.exists()) {
         await documentsDir.create(recursive: true);
       }
 
       final path = '${documentsDir.path}/$listTitle.csv';
-
-
-
-      // 파일 저장
       final file = File(path);
       await file.writeAsString(csv, encoding: utf8);
 
@@ -171,18 +205,16 @@ class _WordListLibraryState extends State<WordListLibrary> {
         backgroundColor: const Color(0xFF6030DF),
         actions: [
           IconButton(
-            icon: const Icon(Icons.upload, color: Colors.white), // 내보내기 아이콘으로 수정
-            onPressed: _showExportDialog,
+            icon: const Icon(Icons.download, color: Colors.white),
+            onPressed: _importCSV, // CSV 가져오기 기능 연결
           ),
           IconButton(
-            icon: const Icon(Icons.download, color: Colors.white), // 가져오기 아이콘으로 수정
-            onPressed: () {
-              // 가져오기 기능 추가 예정
-            },
+            icon: const Icon(Icons.upload, color: Colors.white),
+            onPressed: _showExportDialog, // CSV 내보내기 기능 연결
           ),
         ],
-
       ),
+
       body: Column(
         children: [
           Container(
@@ -267,8 +299,65 @@ class _WordListLibraryState extends State<WordListLibrary> {
     );
   }
 
+
   void _showAddWordListDialog() {
-    // Add word list dialog implementation here
+    final TextEditingController titleController = TextEditingController();
+    final TextEditingController descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('새 단어장 추가'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: '단어장 이름',
+                ),
+              ),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: '단어장 설명',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final title = titleController.text.trim();
+                final description = descriptionController.text.trim();
+
+                if (title.isNotEmpty) {
+                  await DatabaseHelper.addNewWordList(title, description);
+                  await _loadWordLists(); // 단어장 목록 새로고침
+                  Navigator.pop(context);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$title 단어장이 추가되었습니다.')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('단어장 이름을 입력해주세요.')),
+                  );
+                }
+              },
+              child: const Text('추가'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showDeleteDialog(int index) {
