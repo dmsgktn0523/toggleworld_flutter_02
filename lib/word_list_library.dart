@@ -298,6 +298,7 @@ class _WordListLibraryState extends State<WordListLibrary> {
                       onTap: () {
                         widget.onFolderTap(wordLists[index]['title']!, int.parse(wordLists[index]['id']!));
                       },
+
                       onLongPress: () {
                         _showDeleteDialog(index);
                       },

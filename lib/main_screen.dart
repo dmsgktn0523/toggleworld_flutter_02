@@ -48,7 +48,7 @@ class MainScreenState extends State<MainScreen> {
             listId: _currentListId,
             onBackPressed: _onBackPressed,
           ),
-          DictionaryScreen(),
+          DictionaryScreen(initialSearchWord: ''), // 빈 문자열로 초기화하거나 원하는 단어를 넣습니다.
         ],
       ),
       bottomNavigationBar: Container(

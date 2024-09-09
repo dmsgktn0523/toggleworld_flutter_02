@@ -5,8 +5,7 @@ import 'database_helper.dart';
 import 'models/word.dart';
 import 'new_word_page.dart';
 import 'dart:async'; // Timer를 사용하기 위해 추가
-
-
+import 'dictionary_screen.dart'; // DictionaryScreen 임포트
 
 class VocabularyListScreen extends StatefulWidget {
   final String listTitle;
@@ -23,8 +22,6 @@ class VocabularyListScreen extends StatefulWidget {
   @override
   _VocabularyListScreenState createState() => _VocabularyListScreenState();
 }
-
-
 
 class _VocabularyListScreenState extends State<VocabularyListScreen> {
   List<Word> vocabularyList = [];
@@ -74,7 +71,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   Set<int> selectedWords = {}; // 선택된 단어의 ID를 저장할 Set
   bool selectAll = false; // 전체 선택 상태를 관리
 
-
   void _toggleEditMode() {
     setState(() {
       isEditing = !isEditing;
@@ -83,7 +79,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     });
   }
 
-
   Future<void> _deleteSelectedWords() async {
     for (int id in selectedWords) {
       await DatabaseHelper.deleteWord(id);
@@ -91,10 +86,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     _toggleEditMode(); // 편집 모드 종료
     _loadWords(); // 단어 목록 새로고침
   }
-
-
-
-
 
   void _sortWords() {
     setState(() {
@@ -208,7 +199,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                   _toggleEditMode(); // 편집 모드로 전환
                 },
               ),
-
               ListTile(
                 leading: const Icon(Icons.sort, color: Colors.black),
                 title: const Text('정렬하기'),
@@ -324,6 +314,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
       },
     );
   }
+
   void _confirmDeleteWord(int id) {
     showDialog(
       context: context,
@@ -355,11 +346,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     );
   }
 
-
-
-
-
-
   double _calculateTextHeight(String text, TextStyle style, double maxWidth) {
     final TextPainter textPainter = TextPainter(
       text: TextSpan(text: text, style: style),
@@ -369,17 +355,15 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     return textPainter.size.height;
   }
 
-
   OverlayEntry? _overlayEntry;
   Timer? _timer;
 
   void _showCustomSnackbar(BuildContext context, String message) {
-    // 기존에 표시된 스낵바가 있다면 제거
     _hideCustomSnackbar();
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: MediaQuery.of(context).size.height * 0.87, // 스낵바의 위치
+        top: MediaQuery.of(context).size.height * 0.87,
         left: 30.0,
         right: 30.0,
         child: Material(
@@ -387,16 +371,16 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
             decoration: BoxDecoration(
-              color: const Color(0xFF6030DF).withOpacity(0.8), // 연한 보라색 배경
+              color: const Color(0xFF6030DF).withOpacity(0.8),
               borderRadius: BorderRadius.circular(20.0),
             ),
             child: Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14.0, // 작은 글씨 크기
-                fontWeight: FontWeight.bold, // 굵은 글씨
-                color: Colors.white, // 흰색 글씨
+                fontSize: 14.0,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ),
@@ -404,13 +388,8 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
       ),
     );
 
-    // 새로 생성된 오버레이를 추가
     Overlay.of(context)?.insert(_overlayEntry!);
-
-    // 기존 타이머를 취소하고 새 타이머 시작
     _timer?.cancel();
-
-    // 1초 후에 스낵바를 숨김
     _timer = Timer(const Duration(seconds: 1), _hideCustomSnackbar);
   }
 
@@ -420,9 +399,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     _timer?.cancel();
     _timer = null;
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -457,7 +433,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
           if (isEditing)
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: _toggleEditMode, // 편집 모드 종료
+              onPressed: _toggleEditMode,
             ),
           if (!isEditing)
             IconButton(
@@ -465,7 +441,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
               onPressed: _showOptionsMenu,
             ),
         ],
-
       ),
       body: Column(
         children: [
@@ -495,15 +470,13 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                       });
                     },
                   ),
-
                 if (!isEditing)
                   ElevatedButton.icon(
                     onPressed: () async {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              NewWordPage(onAddWord: _addNewWord),
+                          builder: (context) => NewWordPage(onAddWord: _addNewWord),
                         ),
                       );
 
@@ -521,19 +494,15 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                     ),
                   ),
                 if (isEditing)
-
-                        const Text(
-                          '전체 선택',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 16.0,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-
-
-                  const Spacer(), // CheckBox를 좌측에 위치하도록 공간을 확보
+                  const Text(
+                    '전체 선택',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                const Spacer(),
                 if (!isEditing)
                   FlutterSwitch(
                     value: isToggled,
@@ -553,7 +522,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
               ],
             ),
           ),
-
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -564,14 +532,12 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
               ),
               child: ListView.separated(
                 itemCount: vocabularyList.length,
+                // ListView.separated의 itemBuilder에서 ListTile 수정
                 itemBuilder: (context, index) {
                   final word = vocabularyList[index];
-                  final TextStyle textStyle =
-                  const TextStyle(fontSize: 12.0, color: Colors.grey);
-                  final double textWidth =
-                      MediaQuery.of(context).size.width - 80;
-                  final double textHeight =
-                  _calculateTextHeight(word.meaning, textStyle, textWidth);
+                  final TextStyle textStyle = const TextStyle(fontSize: 12.0, color: Colors.grey);
+                  final double textWidth = MediaQuery.of(context).size.width - 80;
+                  final double textHeight = _calculateTextHeight(word.meaning, textStyle, textWidth);
 
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
@@ -596,7 +562,6 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                         style: const TextStyle(color: Colors.white, fontSize: 10),
                       ),
                     ),
-
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -612,25 +577,28 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                             if (isToggled && hideWord)
                               Container(
                                 width: textWidth,
-                                height: 20.0, // Consistent height for words
-                                color: Colors.grey[200], // Light gray overlay
+                                height: 20.0,
+                                color: Colors.grey[200],
                               ),
                           ],
                         ),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 100),
-                          height: textHeight, // Keep height consistent
+                          height: textHeight,
                           child: Stack(
                             children: [
-                              Text(
-                                word.meaning,
-                                style: textStyle,
+                              // SingleChildScrollView를 사용하여 스크롤 가능하게 수정
+                              SingleChildScrollView(
+                                child: Text(
+                                  word.meaning,
+                                  style: textStyle,
+                                ),
                               ),
                               if (isToggled && !hideWord)
                                 Container(
                                   width: textWidth,
                                   height: textHeight,
-                                  color: Colors.grey[200], // Light gray overlay
+                                  color: Colors.grey[200],
                                 ),
                             ],
                           ),
@@ -640,18 +608,12 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                     onTap: () {
                       if (isToggled) {
                         if (hideWord) {
-                          _showCustomSnackbar(context, word.word); // 단어를 SnackBar로 보여줌
+                          _showCustomSnackbar(context, word.word);
                         } else {
-                          _showCustomSnackbar(context, word.meaning); // 뜻을 SnackBar로 보여줌
+                          _showCustomSnackbar(context, word.meaning);
                         }
                       }
                     },
-
-
-
-
-
-
                     trailing: isEditing
                         ? Row(
                       mainAxisSize: MainAxisSize.min,
@@ -682,10 +644,20 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                         : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.search,
-                          color: Colors.grey,
-                          size: 20,
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => DictionaryScreen(initialSearchWord: word.word),
+                              ),
+                            );
+                          },
+                          child: const Icon(
+                            Icons.search,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 10),
                         GestureDetector(
@@ -700,18 +672,15 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                         ),
                       ],
                     ),
-
                     onLongPress: () {
                       setState(() {
                         isEditing = true;
-                        selectedWords.add(word.id); // 편집 모드로 전환 시, 현재 단어 선택
+                        selectedWords.add(word.id);
                       });
                     },
-
-
-
                   );
                 },
+
                 separatorBuilder: (context, index) => const Divider(
                   color: Colors.grey,
                   thickness: 1,
