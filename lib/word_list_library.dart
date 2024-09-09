@@ -8,7 +8,6 @@ import 'dart:io';
 import 'dart:convert';
 import 'database_helper.dart';
 
-
 class WordListLibrary extends StatefulWidget {
   final Function(String, int) onFolderTap;
 
@@ -88,22 +87,36 @@ class _WordListLibraryState extends State<WordListLibrary> {
     String? wordListsString = prefs.getString('wordLists');
 
     if (wordListsString != null) {
+      // 기존 저장된 단어장이 있을 경우 불러오기
       List<dynamic> jsonList = jsonDecode(wordListsString);
       List<Map<String, String>> loadedWordLists = jsonList.map((item) => Map<String, String>.from(item)).toList();
-
       setState(() {
         wordLists = loadedWordLists;
       });
     } else {
+      // 기존 단어장이 없으면 기본 단어장 추가
       setState(() {
         wordLists = [
-          {'id': '1', 'title': 'day01', 'description': 'Commonly used words for daily conversation.'},
-          {'id': '2', 'title': '업무', 'description': 'Words commonly used in business settings.'},
-          {'id': '3', 'title': '유행어', 'description': 'Vocabulary for technical and scientific terms.'},
+          {'id': '1', 'title': 'daily', 'description': 'Commonly used words for daily conversation.'},
+          {'id': '2', 'title': 'business', 'description': 'Words commonly used in business settings.'},
+          {'id': '3', 'title': 'slang', 'description': 'Vocabulary for technical and scientific terms.'},
         ];
       });
-      _saveWordLists();
+      _saveWordLists(); // 기본 단어장 저장
     }
+    // 데이터베이스에서 모든 단어장 목록 가져오기
+    List<Map<String, dynamic>> allLists = await DatabaseHelper.getAllWordLists();
+
+    // 데이터베이스에서 가져온 단어장을 기존 목록과 병합하여 추가
+    setState(() {
+      wordLists.addAll(allLists.map((list) => {
+        'id': list['id'].toString(),
+        'title': list['title'].toString(),
+        'description': list['description'].toString(),
+      }).toList());
+    });
+
+    _saveWordLists(); // 병합된 단어장 목록 저장
   }
 
   Future<void> _saveWordLists() async {
@@ -298,7 +311,6 @@ class _WordListLibraryState extends State<WordListLibrary> {
       ),
     );
   }
-
 
   void _showAddWordListDialog() {
     final TextEditingController titleController = TextEditingController();
