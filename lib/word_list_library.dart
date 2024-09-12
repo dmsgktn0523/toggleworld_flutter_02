@@ -21,11 +21,24 @@ class _WordListLibraryState extends State<WordListLibrary> {
   List<Map<String, String>> wordLists = [];
   Database? _database;
 
+  // 기본 단어장 리스트 선언
+  List<Map<String, String>> defaultWordLists = [
+    {'id': '1', 'title': 'daily', 'description': 'Commonly used words for daily conversation.'},
+    {'id': '2', 'title': 'business', 'description': 'Words commonly used in business settings.'},
+    {'id': '3', 'title': 'slang', 'description': 'Vocabulary for technical and scientific terms.'},
+  ];
+
   @override
   void initState() {
     super.initState();
     _initializeDatabase();
   }
+
+  // 데이터베이스 초기화 로직
+
+
+
+
 
   // CSV 파일 가져오기 기능
   Future<void> _importCSV() async {
@@ -36,13 +49,18 @@ class _WordListLibraryState extends State<WordListLibrary> {
 
     if (result != null) {
       File file = File(result.files.single.path!);
-      String fileName = file.path.split('/').last.split('.').first; // 파일 이름에서 확장자 제거
+      String fileName = file.path
+          .split('/')
+          .last
+          .split('.')
+          .first; // 파일 이름에서 확장자 제거
 
       // 새 단어장 생성
       await DatabaseHelper.addNewWordList(fileName, 'Imported from CSV');
 
       // 방금 생성된 단어장의 ID 가져오기
-      List<Map<String, dynamic>> allLists = await DatabaseHelper.getAllWordLists();
+      List<Map<String, dynamic>> allLists = await DatabaseHelper
+          .getAllWordLists();
       int newListId = allLists.last['id']; // 최신 추가된 단어장의 ID를 가져옴
 
       // CSV 파일 읽기
@@ -96,24 +114,26 @@ class _WordListLibraryState extends State<WordListLibrary> {
     } else {
       // 기존 단어장이 없으면 기본 단어장 추가
       setState(() {
-        wordLists = [
-          {'id': '1', 'title': 'daily', 'description': 'Commonly used words for daily conversation.'},
-          {'id': '2', 'title': 'business', 'description': 'Words commonly used in business settings.'},
-          {'id': '3', 'title': 'slang', 'description': 'Vocabulary for technical and scientific terms.'},
-        ];
+        wordLists = List.from(defaultWordLists); // 기본 단어장을 defaultWordLists에서 가져옴
       });
       _saveWordLists(); // 기본 단어장 저장
     }
+
     // 데이터베이스에서 모든 단어장 목록 가져오기
     List<Map<String, dynamic>> allLists = await DatabaseHelper.getAllWordLists();
 
     // 데이터베이스에서 가져온 단어장을 기존 목록과 병합하여 추가
     setState(() {
-      wordLists.addAll(allLists.map((list) => {
-        'id': list['id'].toString(),
-        'title': list['title'].toString(),
-        'description': list['description'].toString(),
-      }).toList());
+      for (var list in allLists) {
+        // 중복 방지: 기본 단어장에 없는 경우에만 추가
+        if (!wordLists.any((element) => element['title'] == list['title'])) {
+          wordLists.add({
+            'id': list['id'].toString(),
+            'title': list['title'].toString(),
+            'description': list['description'].toString(),
+          });
+        }
+      }
     });
 
     _saveWordLists(); // 병합된 단어장 목록 저장
@@ -184,7 +204,9 @@ class _WordListLibraryState extends State<WordListLibrary> {
             onChanged: (value) {
               setState(() {
                 selectedListTitle = value!;
-                selectedListId = int.parse(wordLists.firstWhere((list) => list['title'] == value)['id']!);
+                selectedListId = int.parse(
+                    wordLists.firstWhere((list) => list['title'] ==
+                        value)['id']!);
               });
             },
             decoration: const InputDecoration(
@@ -269,11 +291,13 @@ class _WordListLibraryState extends State<WordListLibrary> {
                 itemBuilder: (context, index) {
                   return Card(
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 5, horizontal: 10),
                       leading: CircleAvatar(
                         radius: 12,
                         backgroundColor: const Color(0xFF6030DF),
-                        child: const Icon(Icons.folder, color: Colors.white, size: 16),
+                        child: const Icon(Icons.folder, color: Colors.white,
+                            size: 16),
                       ),
                       title: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,9 +318,11 @@ class _WordListLibraryState extends State<WordListLibrary> {
                           ),
                         ],
                       ),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16,
+                          color: Colors.grey),
                       onTap: () {
-                        widget.onFolderTap(wordLists[index]['title']!, int.parse(wordLists[index]['id']!));
+                        widget.onFolderTap(wordLists[index]['title']!, int
+                            .parse(wordLists[index]['id']!));
                       },
 
                       onLongPress: () {
@@ -352,13 +378,22 @@ class _WordListLibraryState extends State<WordListLibrary> {
                 final description = descriptionController.text.trim();
 
                 if (title.isNotEmpty) {
-                  await DatabaseHelper.addNewWordList(title, description);
-                  await _loadWordLists(); // 단어장 목록 새로고침
-                  Navigator.pop(context);
+                  // Check for duplicate name
+                  bool exists = await DatabaseHelper.checkWordListExists(title);
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('$title 단어장이 추가되었습니다.')),
-                  );
+                  if (exists) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('이미 같은 이름의 단어장이 존재합니다: $title')),
+                    );
+                  } else {
+                    await DatabaseHelper.addNewWordList(title, description);
+                    await _loadWordLists(); // Refresh the word list
+                    Navigator.pop(context);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$title 단어장이 추가되었습니다.')),
+                    );
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('단어장 이름을 입력해주세요.')),
@@ -372,6 +407,7 @@ class _WordListLibraryState extends State<WordListLibrary> {
       },
     );
   }
+
 
   void _showDeleteDialog(int index) {
     showDialog(
@@ -440,10 +476,19 @@ class _WordListLibraryState extends State<WordListLibrary> {
     );
   }
 
-  void _deleteFolder(int index) {
+  void _deleteFolder(int index) async {
+    // 삭제할 단어장의 ID 가져오기
+    final listId = int.parse(wordLists[index]['id']!);
+
+    // 데이터베이스에서 삭제
+    await DatabaseHelper.deleteWordList(listId);
+
+    // 캐시된 목록에서 삭제
     setState(() {
       wordLists.removeAt(index);
     });
-    _saveWordLists();
+
+    _saveWordLists(); // 업데이트된 단어장 목록을 저장하여 캐시와 동기화
   }
+
 }
